@@ -228,22 +228,38 @@ uboot_custom_postprocess() {
 			[[ -z ${SPL_BIN_PATH} ]] && exit_with_error "DDR_BLOB not defined for scenario ${BOOT_SCENARIO}"
 			[[ ! -f "${SPL_BIN_PATH}" ]] && exit_with_error "DDR_BLOB ${SPL_BIN_PATH} does not exist for scenario ${BOOT_SCENARIO}"
 
-			if [[ "$BOOT_SOC" == "rk3576" ]]; then
-				display_alert "boot_merger for '${BOOT_SOC}' for scenario ${BOOT_SCENARIO}" "SPL_BIN_PATH: ${SPL_BIN_PATH}" "debug"
-				RKBOOT_INI_FILE=rk3576.ini
-				cp $RKBIN_DIR/rk35/RK3576MINIALL.ini $RKBOOT_INI_FILE
-				sed -i "s|FlashBoost=.*$|FlashBoost=${RKBIN_DIR}/rk35/rk3576_boost_v1.02.bin|g" $RKBOOT_INI_FILE
-				sed -i "s|Path1=.*rk3576_ddr.*$|Path1=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
-				sed -i "s|Path1=.*rk3576_usbplug.*$|Path1=${RKBIN_DIR}/rk35/rk3576_usbplug_v1.03.bin|g" $RKBOOT_INI_FILE
-				sed -i "s|FlashData=.*$|FlashData=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
-				sed -i "s|FlashBoot=.*$|FlashBoot=./spl/u-boot-spl.bin|g" $RKBOOT_INI_FILE
-				sed -i "s|IDB_PATH=.*$|IDB_PATH=idbloader.img|g" $RKBOOT_INI_FILE
-				run_host_x86_binary_logged $RKBIN_DIR/tools/boot_merger $RKBOOT_INI_FILE
-				rm -f $RKBOOT_INI_FILE
-			else
-				display_alert "mkimage for '${BOOT_SOC}' for scenario ${BOOT_SCENARIO}" "SPL_BIN_PATH: ${SPL_BIN_PATH}" "debug"
-				run_host_command_logged tools/mkimage -n "${BOOT_SOC_MKIMAGE}" -T rksd -d "${SPL_BIN_PATH}:spl/u-boot-spl.bin" idbloader.img
-			fi
+			if [[ "$BOOT_SOC" == "rk3576" || "$BOOT_SOC" == "rk3588" ]]; then
+                display_alert "boot_merger for '${BOOT_SOC}'" "Ensuring TEE/ATF inclusion" "info"
+
+                RKBOOT_INI_FILE="custom.ini"
+
+                if [[ "$BOOT_SOC" == "rk3588" ]]; then
+                    cp $RKBIN_DIR/rk35/RK3588TRUST.ini $RKBOOT_INI_FILE
+                   	sed -i "s|Path1=.*rk3588_ddr.*$|Path1=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
+                    sed -i "s|Path1=.*rk3588_usbplug.*$|Path1=${RKBIN_DIR}/rk35/rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v1.19.bin|g" $RKBOOT_INI_FILE
+                    sed -i "s|FlashData=.*$|FlashData=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
+                    sed -i "s|FlashBoot=.*$|FlashBoot=./spl/u-boot-spl.bin|g" $RKBOOT_INI_FILE
+                    sed -i "s|IDB_PATH=.*$|IDB_PATH=idbloader.img|g" $RKBOOT_INI_FILE
+                else
+                    cp $RKBIN_DIR/rk35/RK3576MINIALL.ini $RKBOOT_INI_FILE
+                fi
+
+				if [[ "$BOOT_SOC" == "rk3576" ]]; then
+                	sed -i "s|FlashBoost=.*$|FlashBoost=${RKBIN_DIR}/rk35/rk3576_boost_v1.02.bin|g" $RKBOOT_INI_FILE
+                    sed -i "s|Path1=.*rk3576_ddr.*$|Path1=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
+                    sed -i "s|Path1=.*rk3576_usbplug.*$|Path1=${RKBIN_DIR}/rk35/rk3576_usbplug_v1.03.bin|g" $RKBOOT_INI_FILE
+                    sed -i "s|FlashData=.*$|FlashData=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
+                    sed -i "s|FlashBoot=.*$|FlashBoot=./spl/u-boot-spl.bin|g" $RKBOOT_INI_FILE
+                    sed -i "s|IDB_PATH=.*$|IDB_PATH=idbloader.img|g" $RKBOOT_INI_FILE
+                fi
+
+                run_host_x86_binary_logged $RKBIN_DIR/tools/boot_merger $RKBOOT_INI_FILE
+
+                rm -f $RKBOOT_INI_FILE
+            else
+                # 其他老旧 SoC 继续使用原逻辑
+                run_host_command_logged tools/mkimage -n "${BOOT_SOC_MKIMAGE}" -T rksd -d "${SPL_BIN_PATH}:spl/u-boot-spl.bin" idbloader.img
+            fi
 			;;
 
 		only-blobs)
